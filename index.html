@@ -1,15 +1,239 @@
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Prayer Wall</title>
-  <style>html,body{margin:0;height:100%}</style>
-</head>
-<body>
-  <iframe 
-    src="https://script.google.com/macros/s/AKfycbxQ14qvcKmFvqFbxh_8cq4VUrmVZrdyUYQPtcWP5MajQLG3FUBTlhTmjG9Brz3wO1rmkg/exec"
-    width="100%" height="100%" frameborder="0" style="border:0;display:block;">
-  </iframe>
-</body>
-</html>
+/***************************************************
+ * Wholehearted Legacy – Prayer Wall
+ * Spreadsheet: 1dMd-l-MY35eRfmYXuDIaH6pBedBjChGjXKjtiJNo8jI
+ * Tab: "Prayer Request" (ID | Name | Prayer Request | Submitted On | Public Display)
+ * Emails: From/Reply-to: prayer@wholeheartedlegacy.org
+ ***************************************************/
+const SHEET_ID    = '1dMd-l-MY35eRfmYXuDIaH6pBedBjChGjXKjtiJNo8jI';
+const TAB_REQUEST = 'Prayer Request';
+const ADMIN_TO    = 'prayer@wholeheartedlegacy.org';
 
+/* ---------- helpers ---------- */
+function esc(s){
+  return String(s || '').replace(/[&<>"']/g, m => (
+    {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]
+  ));
+}
+function truthy(v){
+  return (v === true) || ['yes','y','true','1','public']
+    .includes(String(v||'').trim().toLowerCase());
+}
+function sheet(){ return SpreadsheetApp.openById(SHEET_ID); }
+function nowStr(){
+  return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MM/dd/yyyy HH:mm:ss');
+}
+
+/* ===========================================================
+ * POST endpoint — Squarespace form → Prayer Request sheet
+ * =========================================================== */
+function doPost(e){
+  try{
+    const p = (e && e.parameter) ? e.parameter : {};
+    const name   = (p.name   || p.Name   || '').toString().trim() || 'Anonymous';
+    const prayer = (p.prayer || p.message|| p['prayer_request'] || '').toString().trim();
+    const pubRaw = (p.public || p.Public || p['share_public']   || '').toString().trim();
+    const email  = (p.email  || p.Email  || '').toString().trim();
+    const pubVal = truthy(pubRaw) ? 'YES' : 'Private';
+
+    if (!prayer){
+      return ContentService.createTextOutput(JSON.stringify({ok:false, error:'Missing prayer text'}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // Write to Prayer Request tab (create headers if missing)
+    const ss = sheet();
+    const sh = ss.getSheetByName(TAB_REQUEST) || ss.insertSheet(TAB_REQUEST);
+    const expected = ['ID','Name','Prayer Request','Submitted On','Public Display'];
+    const firstRow = sh.getRange(1,1,1,expected.length).getValues()[0];
+    if (firstRow[0] !== expected[0]) sh.getRange(1,1,1,expected.length).setValues([expected]);
+
+    const nextId = Math.max(1, sh.getLastRow()); // simple ID counter
+    sh.appendRow([ nextId, name, prayer, nowStr(), pubVal ]);
+
+    /* -------- auto-reply to sender (if email provided) -------- */
+    if (email){
+      const subject = 'Your Prayer Request Has Been Received 🙏';
+      const plain =
+        'Your Prayer Request Has Been Received 🙏\n\n' +
+        'Thank you for entrusting us with your prayer request. At Wholehearted Legacy, we believe in the power of prayer and the comfort of community. ' +
+        'Your message has been received with care, and our prayer team is lifting your request before God with faith and compassion.\n\n' +
+        'Whatever you’re facing—whether it’s a moment of sorrow, hope, healing, or gratitude—please know you’re not alone. ' +
+        'May the Lord keep you, bless you, and surround you with His peace and presence.\n\n' +
+        'If you’d like to share updates or continue the conversation, we’re here for you.\n\n' +
+        'With heartfelt prayers,\nFounder, Wholehearted Legacy';
+
+      const html =
+        '<div style="font:16px/1.6 Georgia,serif;color:#3b2e28;background:#fffaf3;padding:20px;border-radius:12px">' +
+          '<h2 style="margin:0 0 10px;color:#7b4e30">Your Prayer Request Has Been Received 🙏</h2>' +
+          '<p>Thank you for entrusting us with your prayer request. At <strong>Wholehearted Legacy</strong>, we believe in the power of prayer and the comfort of community. Your message has been received with care, and our prayer team is lifting your request before God with faith and compassion.</p>' +
+          '<blockquote style="margin:14px 0;padding:12px 16px;border-left:4px solid #c9a27c;background:#fff;white-space:pre-wrap">' + esc(prayer) + '</blockquote>' +
+          '<p>Whatever you’re facing—whether it’s a moment of sorrow, hope, healing, or gratitude—please know you’re not alone. May the Lord keep you, bless you, and surround you with His peace and presence.</p>' +
+          '<p>If you’d like to share updates or continue the conversation, we’re here for you.</p>' +
+          '<p style="margin-top:18px">With heartfelt prayers,<br><strong>Founder, Wholehearted Legacy</strong></p>' +
+        '</div>';
+
+      MailApp.sendEmail({
+        to: email,
+        name: 'Wholehearted Legacy',
+        subject,
+        htmlBody: html,
+        plainBody: plain,
+        replyTo: 'prayer@wholeheartedlegacy.org'
+      });
+    }
+
+    /* -------- notify ministry inbox (always) -------- */
+    {
+      const subject = `New Prayer Request (${pubVal}) — ${name}`;
+      const plain =
+        `New prayer request (${pubVal})\n\n` +
+        `Name: ${name}\n` +
+        (email ? `Email: ${email}\n` : ``) +
+        `Public: ${pubVal}\n\n` +
+        `Prayer:\n${prayer}\n`;
+
+      const html =
+        '<div style="font:15px/1.6 Georgia,serif;color:#3b2e28;background:#fffaf3;padding:16px;border-radius:12px">' +
+          `<p><strong>New prayer request (${esc(pubVal)})</strong></p>` +
+          `<p><strong>Name:</strong> ${esc(name)}<br>` +
+          (email ? `<strong>Email:</strong> ${esc(email)}<br>` : ``) +
+          `<strong>Public:</strong> ${esc(pubVal)}</p>` +
+          `<p><strong>Prayer:</strong></p>` +
+          `<blockquote style="margin:8px 0;padding:10px 14px;border-left:4px solid #c9a27c;background:#fff;white-space:pre-wrap">${esc(prayer)}</blockquote>` +
+        '</div>';
+
+      MailApp.sendEmail({
+        to: ADMIN_TO,
+        name: 'Wholehearted Legacy',
+        subject,
+        htmlBody: html,
+        plainBody: plain,
+        replyTo: email || 'prayer@wholeheartedlegacy.org'
+      });
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({ok:true}))
+      .setMimeType(ContentService.MimeType.JSON);
+
+  }catch(err){
+    return ContentService.createTextOutput(JSON.stringify({ok:false, error:String(err)}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/* ===========================================================
+ * GET endpoint — Prayer Wall HTML for Squarespace
+ * =========================================================== */
+function doGet(){
+  const ss = sheet();
+  const sh = ss.getSheetByName(TAB_REQUEST);
+  if (!sh){
+    return HtmlService.createHtmlOutput('<p style="font-family:Georgia,serif;padding:24px">No "Prayer Request" tab found.</p>')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  }
+
+  const values = sh.getDataRange().getDisplayValues();
+  if (values.length < 2){
+    return HtmlService.createHtmlOutput('<p style="font-family:Georgia,serif;padding:24px">No public prayers yet.</p>')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  }
+
+  const hdr = values[0];
+  const idx = {
+    id:          hdr.indexOf('ID'),
+    name:        hdr.indexOf('Name'),
+    prayer:      hdr.indexOf('Prayer Request'),
+    submittedOn: hdr.indexOf('Submitted On'),
+    public:      hdr.indexOf('Public Display')
+  };
+
+  let rows = values.slice(1)
+    .filter(r => r[idx.public] && r[idx.public].toUpperCase() === 'YES' && r[idx.prayer])
+    .map(r => ({
+      name: r[idx.name] || 'Anonymous',
+      text: r[idx.prayer],
+      time: r[idx.submittedOn] || ''
+    }));
+
+  // Sort newest first
+  rows = rows.sort((a,b) => {
+    const da = new Date(a.time);
+    const db = new Date(b.time);
+    return db - da;
+  });
+
+  const cards = rows.map(r => (
+    '<article class="pw-card">' +
+      '<div class="pw-name">'+ esc(r.name) +'</div>' +
+      '<div class="pw-text">'+ esc(r.text) +'</div>' +
+      (r.time ? '<div class="pw-time">'+ esc(r.time) +'</div>' : '') +
+    '</article>'
+  )).join('');
+
+  const html = `
+    <!doctype html>
+    <html>
+    <head>
+      <meta charset="utf-8"/>
+      <meta name="viewport" content="width=device-width,initial-scale=1"/>
+      <title>Prayer Wall</title>
+      <style>
+        :root {
+          --bg:#fffaf3; --bg2:#fdebd3; --ink:#5a463b; --deep:#7b4e30;
+          --card:#fff; --shadow:0 10px 28px rgba(30,10,0,.12);
+        }
+        html,body {
+          margin:0;
+          font-family:Georgia,"Times New Roman",serif;
+          color:var(--ink);
+          background:radial-gradient(1200px 600px at 10% -10%, #fff 30%, transparent 70%),
+                     linear-gradient(135deg,var(--bg),var(--bg2));
+          padding:28px 16px 36px;
+        }
+        .wrap { max-width:980px; margin:0 auto; text-align:center; }
+        .title { font-size:clamp(30px,4.4vw,48px); color:var(--deep); margin:0 0 6px; }
+        .sub { font-size:clamp(15px,2.2vw,18px); color:#6a5b52; margin:0 0 18px; }
+        .divider {
+          width:min(180px,40%); height:10px; margin:12px auto 24px; border-radius:999px; opacity:.6;
+          background:radial-gradient(circle at left,rgba(139,94,60,.35),transparent 70%),
+                     linear-gradient(to right,transparent,rgba(139,94,60,.35),transparent);
+        }
+        .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:18px; text-align:left; }
+        .pw-card { background:var(--card); border-radius:16px; padding:18px 18px 16px; box-shadow:var(--shadow); }
+        .pw-name { font-weight:700; color:var(--deep); margin:0 0 6px; }
+        .pw-text { margin:0 0 10px; line-height:1.55; white-space:pre-wrap; }
+        .pw-time { font-size:13px; color:#8a7a70; }
+        @media (max-width:600px){ body{padding:20px 10px 26px} }
+      </style>
+    </head>
+    <body>
+      <div class="wrap">
+        <h2 class="title">Sacred Conversations</h2>
+        <p class="sub">Lift up a prayer or praise. Let’s encourage one another. <em>James 5:16</em></p>
+        <div class="divider"></div>
+        <section class="grid">
+          ${cards || '<article class="pw-card"><div class="pw-text">No public prayers yet.</div></article>'}
+        </section>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return HtmlService.createHtmlOutput(html)
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/* ===========================================================
+ * Optional menu for spreadsheet UI (safe in non-UI contexts)
+ * =========================================================== */
+function onOpen() {
+  try {
+    const ui = SpreadsheetApp.getUi();
+    ui.createMenu('Prayer Wall')
+      .addItem('Open sheet (no-op)', 'noop_')
+      .addToUi();
+  } catch (err) {
+    Logger.log('UI not available in this context: ' + err.message);
+  }
+}
+function noop_(){ /* placeholder */ }
