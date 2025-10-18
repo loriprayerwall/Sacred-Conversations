@@ -172,5 +172,17 @@
       load();
     }
   </script>
+  <script>
+  // Send height to parent (Squarespace iframe)
+  function sendHeight() {
+    const height = document.body.scrollHeight;
+    window.parent.postMessage({ prayerWallHeight: height }, "*");
+  }
+
+  // Run on load and whenever content changes
+  window.addEventListener("load", sendHeight);
+  new ResizeObserver(sendHeight).observe(document.body);
+</script>
+
 </body>
 </html>
