@@ -4,6 +4,7 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Sacred Conversations – Prayer Wall</title>
+
   <style>
     body {
       font-family: Georgia, "Times New Roman", serif;
@@ -20,13 +21,52 @@
       background: radial-gradient(circle at left,rgba(139,94,60,.35),transparent 70%),
                   linear-gradient(to right,transparent,rgba(139,94,60,.35),transparent);
     }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap: 18px; text-align: left; }
-    .pw-card { background: #fff; border-radius: 16px; padding: 18px; box-shadow: 0 10px 28px rgba(30,10,0,.12); }
+
+    /* 🔹 Scrollable prayer wall */
+    #wl-list {
+      max-height: 600px;   /* adjust height as needed */
+      overflow-y: auto;
+      padding-right: 6px;
+      position: relative;
+    }
+
+    /* 🔹 Prayer card styling + fade-in animation */
+    .pw-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 10px 28px rgba(30,10,0,.12);
+      opacity: 0;
+      transform: translateY(10px);
+      animation: fadeInUp 0.6s ease forwards;
+    }
+    @keyframes fadeInUp {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* 🔹 Custom scrollbar */
+    #wl-list::-webkit-scrollbar { width: 10px; }
+    #wl-list::-webkit-scrollbar-track {
+      background: #f5efe9;
+      border-radius: 10px;
+    }
+    #wl-list::-webkit-scrollbar-thumb {
+      background: #c9a27c;
+      border-radius: 10px;
+      border: 2px solid #f5efe9;
+    }
+    #wl-list::-webkit-scrollbar-thumb:hover { background: #a87f5d; }
+    #wl-list { scrollbar-width: thin; scrollbar-color: #c9a27c #f5efe9; }
+
     .wl-name { font-weight: 700; color: #7b4e30; margin: 0 0 6px; }
     .wl-text { margin: 0 0 10px; line-height: 1.55; white-space: pre-wrap; }
     .wl-time { font-size: 13px; color: #8a7a70; }
   </style>
 </head>
+
 <body>
   <div class="wrap">
     <h2 class="title">Sacred Conversations</h2>
