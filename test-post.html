@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+  <body>
+    <form id="t">
+      <input name="name" value="Lori">
+      <input name="email" value="test@example.com">
+      <input name="public" value="Yes">
+      <textarea name="prayer">This is a test prayer.</textarea>
+      <button>Send</button>
+    </form>
+    <pre id="out"></pre>
+    <script>
+      const WEB_APP = "PASTE_YOUR_CURRENT_/exec_URL_HERE";
+      const form = document.getElementById('t');
+      const out = document.getElementById('out');
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const data = new FormData(form);
+        try {
+          const res = await fetch(WEB_APP, { method:'POST', body:data });
+          out.textContent = 'HTTP ' + res.status + ' ' + res.statusText;
+        } catch (err) {
+          out.textContent = 'Network error: ' + err;
+        }
+      });
+    </script>
+  </body>
+</html>
