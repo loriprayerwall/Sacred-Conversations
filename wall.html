@@ -22,12 +22,34 @@
                   linear-gradient(to right,transparent,rgba(139,94,60,.35),transparent);
     }
 
-    /* 🔹 Scrollable prayer wall */
+    /* 🔹 Scrollable stacked card wall with fade edges */
     #wl-list {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
       max-height: 600px;   /* adjust height as needed */
       overflow-y: auto;
       padding-right: 6px;
       position: relative;
+    }
+
+    #wl-list::before,
+    #wl-list::after {
+      content: "";
+      position: sticky;
+      left: 0;
+      right: 0;
+      height: 40px;
+      pointer-events: none;
+      z-index: 2;
+    }
+    #wl-list::before {
+      top: 0;
+      background: linear-gradient(to bottom, #fffaf3, transparent);
+    }
+    #wl-list::after {
+      bottom: 0;
+      background: linear-gradient(to top, #fffaf3, transparent);
     }
 
     /* 🔹 Prayer card styling + fade-in animation */
@@ -73,7 +95,7 @@
     <p class="sub">Lift up a prayer or praise. Let’s encourage one another. <em>James 5:16</em></p>
     <div class="divider"></div>
 
-    <section id="wl-list" class="grid">
+    <section id="wl-list">
       <p>Loading prayers…</p>
     </section>
   </div>
@@ -97,6 +119,18 @@
       ));
     }
 
+    function formatDate(isoString) {
+      if (!isoString) return '';
+      const d = new Date(isoString);
+      return d.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+    }
+
     function render(rows){
       const LIST = document.getElementById('wl-list');
       const CARD_TPL = document.getElementById('wl-card');
@@ -111,7 +145,7 @@
         const node = CARD_TPL.content.cloneNode(true);
         node.querySelector('.wl-name').textContent = p.name || 'Anonymous';
         node.querySelector('.wl-text').innerHTML = esc(p.text || '');
-        node.querySelector('.wl-time').textContent = p.time || '';
+        node.querySelector('.wl-time').textContent = formatDate(p.time);
         frag.appendChild(node);
       });
 
