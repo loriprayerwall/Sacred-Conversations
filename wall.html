@@ -1,14 +1,101 @@
-<!-- NO html/head/body tags here -->
-<section id="wl-wall" aria-label="Prayer Wall">
-  <div id="wl-list" style="display:grid; gap:16px;"></div>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Sacred Conversations – Prayer Wall</title>
+  <style>
+    body {
+      font-family: Georgia, "Times New Roman", serif;
+      background: #fffaf3;
+      color: #3b2e28;
+      margin: 0;
+      padding: 28px 16px 36px;
+    }
+    .wrap { max-width: 980px; margin: 0 auto; text-align: center; }
+    .title { font-size: clamp(30px,4.4vw,48px); color: #7b4e30; margin: 0 0 6px; }
+    .sub { font-size: clamp(15px,2.2vw,18px); color: #6a5b52; margin: 0 0 18px; }
+    .divider {
+      width: min(180px,40%); height: 10px; margin: 12px auto 24px; border-radius: 999px; opacity: .6;
+      background: radial-gradient(circle at left,rgba(139,94,60,.35),transparent 70%),
+                  linear-gradient(to right,transparent,rgba(139,94,60,.35),transparent);
+    }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap: 18px; text-align: left; }
+    .pw-card { background: #fff; border-radius: 16px; padding: 18px; box-shadow: 0 10px 28px rgba(30,10,0,.12); }
+    .wl-name { font-weight: 700; color: #7b4e30; margin: 0 0 6px; }
+    .wl-text { margin: 0 0 10px; line-height: 1.55; white-space: pre-wrap; }
+    .wl-time { font-size: 13px; color: #8a7a70; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h2 class="title">Sacred Conversations</h2>
+    <p class="sub">Lift up a prayer or praise. Let’s encourage one another. <em>James 5:16</em></p>
+    <div class="divider"></div>
 
+    <section id="wl-list" class="grid">
+      <p>Loading prayers…</p>
+    </section>
+  </div>
+
+  <!-- Template for prayer cards -->
   <template id="wl-card">
-    <article style="background:#fff;border-radius:16px;padding:16px;box-shadow:0 10px 28px rgba(30,10,0,.12)">
-      <header style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <strong class="wl-name" style="font-weight:600;color:#3a2d24;">Anonymous</strong>
-        <time class="wl-time" style="font-size:12px;color:#786d66;"></time>
-      </header>
-      <blockquote class="wl-text" style="margin:0;color:#2b211b;line-height:1.6;white-space:pre-wrap;"></blockquote>
+    <article class="pw-card">
+      <div class="wl-name"></div>
+      <div class="wl-text"></div>
+      <div class="wl-time"></div>
     </article>
   </template>
-</section>
+
+  <script>
+    const DATA_URL = "https://script.google.com/macros/s/AKfycbyPz3RQjAt8pJZLjg4OuK6N_J5jy3v4HnNuo5LBhfGAi1pdOdCoRxj0HnQKwlDmsVtUqw/exec";
+
+    function esc(s){
+      return String(s || '').replace(/[&<>"]/g, m => (
+        {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]
+      ));
+    }
+
+    function render(rows){
+      const LIST = document.getElementById('wl-list');
+      const CARD_TPL = document.getElementById('wl-card');
+
+      if (!Array.isArray(rows) || rows.length === 0) {
+        LIST.innerHTML = '<p style="color:#786d66">No public prayers yet.</p>';
+        return;
+      }
+
+      const frag = document.createDocumentFragment();
+      rows.forEach(p => {
+        const node = CARD_TPL.content.cloneNode(true);
+        node.querySelector('.wl-name').textContent = p.name || 'Anonymous';
+        node.querySelector('.wl-text').innerHTML = esc(p.text || '');
+        node.querySelector('.wl-time').textContent = p.time || '';
+        frag.appendChild(node);
+      });
+
+      LIST.innerHTML = '';
+      LIST.appendChild(frag);
+    }
+
+    async function load(){
+      const LIST = document.getElementById('wl-list');
+      try {
+        const res = await fetch(DATA_URL + `?t=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`Feed request failed: ${res.status}`);
+        const data = await res.json();
+        render(data);
+      } catch (err) {
+        console.error(err);
+        LIST.innerHTML = '<p style="color:#a00">There was a problem loading prayers. Please try again shortly.</p>';
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', load);
+    } else {
+      load();
+    }
+  </script>
+</body>
+</html>
